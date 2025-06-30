@@ -1,0 +1,418 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> c234 ollama interface</title>
+<style>
+body {font-family: sans-serif; line-height: 1.6; padding: 20px;}
+#prompt {width: 80%; padding: 10px; margin-bottom: 10px; }
+#send {padding: 10px 14px; }
+.message-role-assistant {margin-top: 20px; border: 1px solid #ccc; padding: 14px; background-color: #000; color: #fff; }
+#status {margin-top: 10px; font-style: italic; color: #555;}
+
+#messageHistoryStack .message-turn {
+border: 1px solid #e8e8e8;
+border-radius: 5px;
+padding: 10px;
+margin-bottom: 10px;
+background-color: #f9f9f9;
+}
+#messageHistoryStack .message-turn strong {
+display: block; 
+margin-bottom: 5px;
+font-size: 0.9em;
+color: #333;
+}
+#messageHistoryStack .message-turn[data-role="user"]{background-color: #e6f7ff; border-color: #b3e0ff;}
+#messageHistoryStack .message-turn[data-role="assistant"]{ background-color: #f0f0f0; border-color: #cccccc;}
+#messageHistoryStack .message-turn[data-role="role"]{ background-color: #fffbe6; border-color: #ffe58f;}
+
+#messageHistoryStack .message-turn textarea {
+width: 98%; 
+min-height: 50px;
+border: 1px solid #ccc;
+padding: 5px;
+font-family: monopspace;
+font-size: 0.95em;
+resize: vertical;
+}
+#messageHistoryStack .tool-call-notice {
+font-style: italic;
+color: #888;
+font-size:0.9em;
+margin-top: 4px;
+}
+
+.choice-connector-cell {
+border-left: 3px solid #e0b030;
+border-right: 1px solid #30b3e0;
+border-top: none;
+border-bottom: none;
+background-color: #fdccf4;
+}
+
+textarea { background-color: #000; color:#fff;}
+
+</style>
+</head>
+<body>
+<h1>Temporal chat with ollama via C234</h1>
+<hr>
+<div>
+<label for="numCtxSlider">desiredContextSize(num_Ctx)</label>
+<div style="display: flex; align-items: center; gap: 10px;">
+<input type="range" id="numCtxSlider" min="512" max="8192" value="4096" step="256" style="flex-grow: 1;">
+<span id="numCtxValue" style="font-weight: bold; min-width: 60px; text-align: right;">4096</span> tokens </div>
+<div id="contextSizeInfo" >Total contenxt size</div>
+</div>
+<div>
+<label for="tempslider">desiredslider</label>
+<div style="display: flex; align-items: center; gap: 10px;">
+<input type="range" id="tempslider" min="0" max="1" value="0.34" step="0.01" style="flex-grow: 1;">
+<span id="tempValue" style="font-weight: bold; min-width: 60px; text-align: right;">0.34</span>randomness</div>
+</div>
+<div>
+<label for="topkslider">top_k slider</label>
+<div style="display: flex; align-items: center; gap: 10px;">
+<input type="range" id="topkslider" min="1" max="20" value="3" step="1" style="flex-grow: 1;">
+<span id="topkValue" style="font-weight: bold; min-width: 60px; text-align: right;">3</span>choice</div>
+</div>
+
+<h2>future scenarios table</h2> 
+<div>
+<button id="renderbtn"  >render everything</button>
+</div>
+<div style="margin-bottom:20px;">
+<h3>tracks (editable potential futures - lowest track has highest override priority</h3>
+<div style="overflow-x: auto;">
+<table border="1" style="border-collapse: collapse; width: %100;">
+<tbody id="dynamicTableTracksContainer">
+</tbody></table></div></div>
+<div><h3>coalesced execution plan</h3>
+<div style="overflow-x: auto;">
+<table border="1" style="border-collapse: collapse; width: 100%;">
+<tbody id="coalescedExecutionRowContainer">
+</tbody></table></div></div>
+<h2>Conversation History Log</h2>
+<div style="max-height: 300px; overflow-y: auto; border: 1px solid $ccc; padding: 1px;">
+<button id="saveArchiveBut">Save full archive to file</button><button id="savePresentScenario">save present Scenario</button>
+<table border="1" style="width:100%; border-collapse:collapse:">
+<tbody id="conversationHistoryLogContainer">
+</tbody></table></div>
+<hr>
+<div>
+<button id="seetex">see TheScenario</button>
+<button id="emitex">shine tscenario</button>
+<textarea id="scenetext"></textarea></div>
+
+<hr>
+<div>
+<label for="function_name">Function_name:</label>
+<input type="text" id="function_name" placeholder="e.g: getSphericalCoordinates">
+<label for="function_description">Function Description:</label><input type="text" id="function_description" placeholder="describe to the LLM what the tool does.">
+<label for="number_parameters">number of parameters:</label><select id="number_parameters">
+<option value="0">0</option>
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+<option value="5">5</option>
+<option value="6">6</option> </select>
+<div id="parameters_area"></div>
+<label for="function_code">FUnction code(javscript</label>
+<textarea id="function_code" placeholder="async function(param1, param2){"></textarea>
+<button id="add_function"> add/update function</button>
+<div id="defined_functions_list">
+<h3>defined functions</h3>
+<ul></ul>
+</div>
+<h2> tool execution output:</h2>
+<div id="tool_output_area"></div>
+
+<div id="import_export_section" style="margin-top: 30px;">
+<h3>Import/Export tools</h3>
+<label for="tools_json_area">tools definition (JSON):</label>
+<textarea id="tools_json_area"  rows="10" placeholder="exported tools will be showwn"></textarea>
+<button id="export_tools_button">Export Current Tools</button>
+<button id="import_tools_button">import/replace tools from above</button>
+<div id="import_export_status" style="font-style:italic; colour: Green; margin-top: 5px;"></div>
+ </div>
+
+</div>
+
+
+<hr>
+<div>
+    <label for="modelSel">Choose a model:</label>
+    <select id="modelSel"></select> 
+</div>
+<div>
+<textarea id="prompt" rows="4" placeholder="enteryour prompt here..."></textarea>
+</div>
+
+<button id="send">SendPrompt</button>
+
+
+</div>
+
+<h2>Response: </h2>
+<div id="response"></div>
+<div id="status">Ready</div>
+        <div id="contextSizeInfo" style="font-size: 0.85em; color: #666; margin-top: 5px;">Context tokens used in last input turn: N/A</div>
+<div id="tokendisp"></div>
+<div id="messageHistoryStack"></div>
+<button id="saveHistoryButton" style="margin-left: 10px">save conversation</button>
+ 
+<script src="/script.js"></script>
+
+<div id="5dautome">
+{
+  "setScenarioChoice": {
+    "type": "function",
+    "function": {
+      "name": "setScenarioChoice",
+      "description": "Selects the next path in a pre-defined conversational scenario when presented with a choice point. Use this to navigate the flow.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "choice_conditional_phrase": {
+            "type": "string",
+            "description": "The unique conditional phrase of this choice point when the decision is being made."
+          },
+          "selectedBranchName": {
+            "type": "string",
+            "description": "The name of the desired branch to select from the list of options."
+          },
+          "reasoning": {
+            "type": "string",
+            "description": "A brief explanation for why this particular branch was chosen."
+          }
+        },
+        "required": [
+          "choice_conditional_phrase",
+          "selectedBranchName",
+          "reasoning"
+        ]
+      },
+      "code": "setScenarioChoice_toolImpl"
+    }
+  }
+}
+</div>
+
+
+<div id='defaulttooldef'>
+	{
+  "delegate": {
+    "type": "function",
+    "function": {
+      "name": "delegate",
+      "description": "Delegate the hard work and Gets an answer from a different specialized AI assistant for a specific sub-task or question. Use this when you need a focused response on a particular topic the specialist is good at, or to break down a complex problem.",
+      "parameters": {
+        "type": "object",
+        "properties":{ "modelName": {
+            "type": "string",
+            "description": "Choose the specialist model to delegate the task to, Options are: [draft, Coder, Maths, Planner, Orchestrator]"
+          },
+          "Goal": {
+            "type": "string",
+            "description": "The overarching goal to accomplish and achieve."
+          },
+          "Decomposition": {
+            "type": "string",
+            "description": "Decompose the goal into 3 sub-goals with the first defines what is unique about the goal compared to nothing, The second being when the goal fails, and the last producing the goal."
+          },
+          "Keywords": {
+            "type": "string",
+            "description": "Summarize"
+          },
+          "Context": {
+            "type": "string",
+            "description": "describe the foundational state."
+          }
+        },
+        "required": [
+          "Goal",
+          "Decomposition",
+          "Keywords",
+          "Context"
+        ]
+      },
+      "code": "console.log('worka');"
+    }
+  }}
+
+</div><br>
+
+
+
+<div>
+{
+  "delegate": {
+    "type": "function",
+    "function": {
+      "name": "delegate",
+      "description": "Gets an answer from a different specialized AI assistant for a specific sub-task or question. Use this when you need a focused response on a particular topic the specialist is good at, or to break down a complex problem.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "description": "The name of the target Ollama model to delegate the task to (draft, Coder, Maths, Planner, Orchestrator)"
+          },
+          "promptContent": {
+            "type": "string",
+            "description": "The precise question, instruction, or piece of text you want the specialized AI assistant to process and respond to. Be clear and provide all necessary details and context for the specialist to understand the task."
+          }
+        },
+        "required": [
+          "modelName",
+          "promptContent"
+        ]
+      },
+      "code": " "
+    }
+  }
+}
+</div><br>
+<div>
+{
+  "delegate": {
+    "type": "function",
+    "function": {
+      "name": "delegate",
+      "description": "Gets an answer from a different specialized AI assistant for a specific sub-task or question. Use this when you need a focused response on a particular topic the specialist is good at, or to break down a complex problem.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "description": "The name of the target Ollama model to delegate the task to (draft, Coder, Maths, Planner, Orchestrator)"
+          },
+          "promptContent": {
+            "type": "string",
+            "description": "The precise question, instruction, or piece of text you want the specialized AI assistant to process and respond to. Be clear and provide all necessary details and context for the specialist to understand the task."
+          }
+        },
+        "required": [
+          "modelName",
+          "promptContent"
+        ]
+      },
+      "code": "async function ({ modelName, promptContent }) { const targetModel = modelName;  if(!match_it(modelName, modeloptions)){  targetModel = modeloptions[draft]; } const delegatePrompt = promptContent; if (!targetModel || !delegatePrompt) { return {role:'tool',content:'',individual_tokens:null,aggregate_tokens:null} ; } console.log(`Delegate Tool: Sending prompt ${targetModel}`); const numCtx = parseInt(numCtxSlider.value, 10); try { const delegateRequestData = { model: targetModel,  messages: [{ role: 'user', content: promptContent }], stream: true, options: { num_ctx: numCtx,  temperature: 0.5, top_k: 10 } }; const delegateResult = await coreOllamaRequest(delegateRequestData);  delegateResult.role = \"tool\"; return delegateResult; } catch (error) { return {role: 'tool', content: 'Task too difficult.'}; } }"
+    }
+  }
+}
+</div><br>
+<div>{
+  "delegate": {
+    "type": "function",
+    "function": {
+      "name": "delegate",
+      "description": "Delegate a specific prompt to another specified Ollama model and returns its response text. Use this for specialized tasks",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "description": "The name of the target Ollama model to delegate the task to (draft, Coder, Maths, Planner, Orchestrator)"
+          },
+          "promptContent": {
+            "type": "string",
+            "description": "The precise question, instruction, or piece of text you want the specialized AI assistant to process and respond to. Be clear and provide all necessary details and context for the specialist to understand the task."
+          }
+        },
+        "required": [
+          "modelName",
+          "promptContent"
+        ]
+      },
+      "code": "async function ({ modelName, promptContent }) {\n //@returns content . to be added to message whose role=tool\n \n const targetModel = modelName;\n if(!match_it(modelName, modeloptions)){\n targetModel = modeloptions[draft];\n }\n const delegatePrompt = promptContent;\n if (!targetModel || !delegatePrompt) {\n return \"\";\n }\n console.log(`Delegate Tool: Sending prompt to ${targetModel} via coreOllamaRequest`);\n\n try { \n const delegateRequestData = {\n model: targetModel,\n messages: [{ role: 'user', content: delegatePrompt }],\n stream: true,\n  options: {\n num_ctx: numCtx,\n temperature: 0.5,\n top_k: 10\n }\n };\n \n const delegateResult = await coreOllamaRequest(delegateRequestData); \n const delegatedContent = delegateResult.content || \"\"; \n console.log(`==+++==Delegate Tool: Received response object from ${targetModel}:`, delegateResult);\n return delegatedContent;\n } catch (error) {\n console.error(`Error during delegate tool execution for ${targetModel}:`, error);\n return \"Task too difficult.\";\n }\n}"
+    }
+  }
+}
+</div><br><br>
+
+<div>
+{
+  "delegate": {
+    "type": "function",
+    "function": {
+      "name": "delegate",
+      "description": "Delegate a specific prompt to another specified Ollama model and returns its response text. Use this for specialized tasks",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "description": "The name of the target Ollama model to delegate the task to (coder, semantic)"
+          },
+          "promptContent": {
+            "type": "string",
+            "description": "The specific prompt or content to send to the target model"
+          }
+        },
+        "required": [
+          "modelName",
+          "promptContent"
+        ]
+      },
+      "code": " async function delegate ({ modelName, promptContent }) {\n \n const targetModel = modelName;\n const delegatePrompt = promptContent;\n\n if (!targetModel || !delegatePrompt) {\n return JSON.stringify({ error: \"Both modelName and promptContent arguments are required for delegate tool.\" });\n }\n\n const toolLogArea = document.getElementById('tool_output_area');\n toolLogArea.textContent += `\\n--- Delegating to ${targetModel} ---\\nPrompt: ${delegatePrompt}\\n`;\n console.log(`Delegate Tool: Sending prompt to ${targetModel} via coreOllamaRequest`);\n\n try { \n const delegateRequestData = {\n model: targetModel,\n messages: [{ role: 'user', content: delegatePrompt }],\n stream: true \n };\n \n const delegateResult = await coreOllamaRequest(delegateRequestData); \n\n\n const delegatedContent = delegateResult.content || \"\"; \n toolLogArea.textContent += `Response from ${targetModel}: ${delegatedContent}\\n--- End Delegation ---\\n`;\n console.log(`Delegate Tool: Received response object from ${targetModel}:`, delegateResult);\n \n return delegatedContent;\n\n } catch (error) {\n console.error(`Error during delegate tool execution for ${targetModel}:`, error);\n toolLogArea.textContent += `ERROR delegating to ${targetModel}: ${error.message}\\n--- End Delegation ---\\n`; \n return JSON.stringify({ error: `Failed to delegate to model ${targetModel}: ${error.message}` });\n }\n}"
+    }
+  },
+  "ensureAndExecuteTool": {
+    "type": "function",
+    "function": {
+      "name": "ensureAndExecuteTool",
+      "description": "creates and executes a tool that  uses an LLM to generate the tool, executes the tool and returns the value of the tool.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "toolName": {
+            "type": "string",
+            "description": "the name of the javascript function to create"
+          },
+          "toolArguments": {
+            "type": "string",
+            "description": "A javascript object in JSON format, where each argument has a name and a description field {arguments: [{name: string, description: string}]}"
+          },
+          "toolGenerationPrompt": {
+            "type": "string",
+            "description": "A prompt detailing The expected purpose of the tool, its process and what the tool is expected to return."
+          },
+          "coderModelName": {
+            "type": "string",
+            "description": "a string (qwen2.5-coder:0.5b, qwen2.5-coder:7b, deepseek-r1:14b )"
+          }
+        },
+        "required": [
+          "toolName",
+          "toolArguments",
+          "toolGenerationPrompt"
+        ]
+      },
+      "code": "async function ensureAndExecuteTool({toolName, toolArguments, toolGenerationPrompt, coderModelName = \"qwen2.5-coder:0.5b\"}) { \nconst toolLogArea = document.getElementById('tool_output_area');//ensure this ID\nlet log = (msg) => {\n\tconsole.log(msg);\n\tif (toolLogArea) toolLogArea.textContent += msg + \"\\n\";\n};\n log(` -- ensuring and executing : ${toolName} --`);\n log(`args: ${JSON.stringify(toolArguments)}`);\n//beck if the tool already exists\nif(!definedTools[toolName]){\n\tconsole.log(`tool ${toolName} is not defined. Attempting to generate..`);\n//xxx12\n\n\tmetanPrompt = `Your expert Javascript generating an ollama tool definition function named  \"${toolName}\". This function is expected to be called with arguments structured like \"${JSON.stringify(toolArguments)}\".\\n Generate a complete JSON object that defines this tool. The JSON output must strictly follow this structure: \n\t\t{ \"name\":\"string (must be exactly ${toolName})\", \"description\": \"string (a concise description of what the tool does, based on the task)\", parameters\":{\"type\":\"object\", \"properties\":{ // define parameter schemas here based on toolArguments and task description.\\n // example: \\n \"argName\":{\"type\":\"string or number or boolean\", \"description\":\"Description of argName\"}\n\t\t}, \"required\":[\"argName1\",\"argName2\"]//list requiredparameter names from properties\\n }, \"code\":\"string (This string will contain the full javaScript code for an async function that is named ${toolName}. The function will recieve a single object as its argument, containing the parameters defined in properties. Example: '''async function tool ({argName1, argName2}){/*..your logic */return result string;}''' Ensure the code is functional and achieves the task: ${toolGenerationPrompt}). \" \n} Provide only the JSON object as your response. Do not include any other text, comments, or explanations. Ensure the 'parameters' schema accurately reflects the inputs needed for the described task. The javascript code in the code field must be a single valid string.`;\nconsole.log(`prompting ${coderModelName} to generate the code`);\ntry{\n//2. call coreOllamaRequest to get the Coder Model to generate. \n\tconst generationRequestData = {\nmodel: coderModelName, \nmessages: [{role: \"user\", content: metanPrompt}],\nstream: true,\ntools: undefined\n};\n\tconst coderResponse = await coreOllamaRequest(generationRequestData);\n\tconst generatedJsonString = coderResponse.content;\n\tif(!generatedJsonString){\n\t\tthrow new Error(`coder model (${coderModelName}) returned empty content for tool `);\n\t}\n\tconsole.log(`recieved potential JSON definitin from coder`);\n//3 parse and validate the generated definition. \n\tlet toolDefinition; \n try{\n\ttoolDefinition = JSON.parse(generatedJsonString);\n }catch(parseError){\n\t log(`error failed to parse JSON from coder: ${parseError.message}`);\n\tconsole.log(`raw response: ${generatedJsonString}`);\n\tthrow new Error(`failed to parse JSON from codermodel ${parseError.message}`);\n } \n//basic validation. \n if(typeof toolDefinition.name !=='string' || toolDefinition.name !== toolName || typeof toolDefinition.description !== \"string\" || typeof toolDefinition.parameters?.properties !== 'object' || !Array.isArray(toolDefinition.parameters?.required) || typeof toolDefinition.code !== 'string'){\n\tlog(`error generated tool definition for ${toolName} has invalide ${JSON.stringify(toolDefinition, null, 2)} structure`);\n }\n//4. dynamically add the tool using the helper function \n//this assumes addtool to system is globally accessible\n if(typeof addToolToSystem === 'function'){\naddToolToSystem(toolDefinition);\n  }else{\n\tconsole.warn(\"addToolToSystem global helper not found\");\n//manual add. \n\tdefinedTools[toolDefinition.name] = {type: 'function', function: tooDefinition};\n\tupdateDefinedFunctionUI(); console.log(`Tool ${toolName} added directly to definedTools`);\n\t}\n}catch(err){\n\tconst errorMesg = `failed to generate and defined successfully`;\n\tconsole.log(`error: ${errorMsg}`);\n}\n//xxx60\n}else{\n\tconsole.log(`ALREADY DEFINED ${toolName}`);\n}\n//5 execute the toool. \n\tif(definedTools[toolName]){\n\t\t//executeToolSafely expects the inner function object\n\t\tconst toolToExecute = definedTools[toolName].function;\n\t\tconsole.log(`executing tool ${toolName}`);\n\t\ttry {\n\tconst result = await executeToolSafely(toolToExecute, toolArguments, toolName);\n\tconst resultString = (typeof result === 'string') ? result: JSON.stringify(result);\n\tconsole.log(`execution of ${toolName} successful. result string ${resultString}`);\n\treturn result; \n\t\t}catch(exer){\n\t\t\tconst errorMsg = `error during execution of tool ${toolName} is ${exer.message}`;\n\t\t\tconsole.log(`ERROR: ${errorMsg}`);\n\t\t\treturn JSON.stringify({error: errorMsg});\n\t\t}\n\t}else{\n\t\t//this case should ideally not be reached if generation was attempted. \n\t\tconst criticalErrorMsg = `tool ${toolName} not found in defined tools after all processes exausted`;\n\t\tconsole.log(`CRITICAL  ERROR ${criticalErrorMsg}`);\n\t\treturn JSON.stringify({error: criticalErrorMsg});\n\t}\n\t\n}"
+    }
+  },
+  "askSpecialistHelper": {
+    "type": "function",
+    "function": {
+      "name": "askSpecialistHelper",
+      "description": "Gets an answer from a different specialized AI assistant for a specific sub-task or question. Use this when you need a focused response on a particular topic the specialist is good at, or to break down a complex problem..",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "prompt_for_specialist": {
+            "type": "string",
+            "description": "The precise question, instruction, or piece of text you want the specialized AI assistant to process and respond to. Be clear and provide all necessary details and context for the specialist to understand the task."
+          }
+        },
+        "required": [
+          "prompt_for_specialist"
+        ]
+      },
+      "code": "async function askSpecialistHelper ({ prompt_for_specialist}){\nconst toolLogArea = document.getElementById(\"tool_output_area\"); \nlet log = (msg) => { console.log(msg); \nif(toolLogArea){ toolLogArea.textContent += msg + \"\\n\"; }; \n}\nconst specialistModelName = \"qwen2.5-coder:32b\";\nif(!prompt_for_specialist || typeof prompt_for_specialist !== \"string\" || prompt_for_specialist.trim() === \"\"){ log(\"askPecialisthelper ERROR: promptforspecialist argument is missing not a string or empty\");return JSON.stringify({error: \"promptforspecialist argument must be a nonempty string\"}); }\ntry{\nif(typeof coreOllamaRequest !== \"function\"){const errMsg = \"askSp   ecialistHelper not available\";log(errMsg);return errMsg;};\nconst specialistResponse = await coreOllamaRequest(requestDataToSSpecialist);\n\nconst specialistContent = specialistResponse.content || \"\";\nlog(`--- askspecialistHelper: task completeted by ${specialistModelName} --${specialistContent.substring(0,100)} ---`);\nreturn specialistContent;\n}catch(e){\nlog(`askSpecialistHElper ERROR ${e.message} from ${specialistModelName}`);\nreturn JSON.stringify({error: e.message});\n}\n}"
+    }
+  }
+}</div>
+</body></html>
