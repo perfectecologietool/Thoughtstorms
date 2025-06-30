@@ -1,9 +1,11 @@
 # Thoughtstorms
 HTML interface for Ollama. Plus http proxy for browser's cross origin concerns
 ## Contents : 
-Summary; Files; Installation ; Running; User Interface; How it works; 
+Summary; Usage; Files; Installation ; Running; User Interface; How it works; 
 ## Summary:
 A browser-based client for Ollama. To avoid Cross-domain security, we can use an Go proxy HTTP server that serves only the one webpage and its javascript inclusion.
+ ## usage 
+1) type in your prompt. 2) click +turn to set second or subsequent prompt turn. 3) click "execute ad hoc" or in the coalescedPlan, click "run to here" .  4) to add a forking choice, click 'terminate with choice.' 
 ## Files:
 ### source.go	-
 This simple webserver has two API endpoints.
