@@ -1,3 +1,4 @@
+//@changelog = handleExecuteTwoPassTurn -> etc  
 function match_it(arg1, arry) {
  // Check if arg1 is a key of the arry
 const ke3 = Object.keys(arry);
@@ -120,13 +121,120 @@ const paintTracksBtn = document.getElementById('renderbtn');
 //
 
   const modelInput = document.getElementById('modelSel'); 
-  var modeloptions = {"draft":{supportstools:"true", hardmaxctx:"32000", value:"qwen2.5-coder:0.5b"},
-    "Coder":{supportstools:"true", hardmaxctx:"128000", value:"qwen2.5-coder:7b"},
-	"Maths":{supportstools:"true", hardmaxctx:"128000", value:"qwen2.5-coder:32b"},
-
-  "Planner":{supportstools:"true", hardmaxctx:"8000", value:"deepseek-R1:14b"},
-  "Orchestrator":{supportstools:"true", hardmaxctx:"8000", value:"deepseek-R1:32b"}
+  
+  const processingCallbacks = {
+	/* append suffix to prompt instructing performance by model
+@param {string}
+@returns {string}	*/
+  "addCoderSuffix" : (promptContent) => {return promptContent + "Provide your code as a single code block without additional supporting paragraphs."; },
+  /* append suffix for mathematical solutions.
+@param {string} original prompt
+@return {string}   */
+	"addMathSuffix" : (promptContent) => {return promptContent + "solve the following math problem step-by-step. Dont use LaTeX.";},
+	/* extract code within triple back ticks.  */
+  "extractCodeBlocks" : (responseContent) => {return extractCodeBlocks(responseContent);},
   };
+  
+  var modeloptions = { "Q2 draft":{ supportstools:"true",
+  hardmaxctx:"32000",
+  value:"qwen2.5-coder:0.5b",
+  hasRequestCallback : "true",
+  requestCallback : "addCoderSuffix",
+  hasResponseCallback : "true",
+  responseCallback : "extractCodeBlocks",
+  }, 
+  "JSON structure":{supportstools:"true",
+  hardmaxctx:"58000",
+  value:"Osmosis/Osmosis-Structure-0.6B:latest",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback :null
+  },  
+  "MD convert":{supportstools:"true",
+  hardmaxctx:"228000",
+  value:"reader-lm:1.5b",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback :null
+  },
+  "languageSupport":{supportstools:"true",
+  hardmaxctx:"8000",
+  value:"command-r7b:7b",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback :null
+  },
+    "Coder":{supportstools:"true",
+	hardmaxctx:"128000",
+	value:"qwen2.5-coder:7b",
+  hasRequestCallback : "true",
+  requestCallback : "addCoderSuffix",
+  hasResponseCallback : "true",
+  responseCallback : "extractCodeBlocks",
+	},
+  "GeNowledge":{supportstools:"true",
+  hardmaxctx:"32000",
+  value:"falcon3:10b",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback : null
+  },
+  "DeeKoder":{supportstools:"true",
+  hardmaxctx:"128000",
+  value:"deepcoder:14b",
+  hasRequestCallback : "true",
+  requestCallback : "addCoderSuffix",
+  hasResponseCallback : "true",
+  responseCallback : "extractCodeBlocks"
+  },
+  "r1-Planner":{supportstools:"true",
+  hardmaxctx:"8000",
+  value:"deepseek-R1:14b",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback : null
+  },
+	"q2.5-Maths":{supportstools:"true",
+	hardmaxctx:"128000",
+	value:"qwen2.5-coder:32b",
+  hasRequestCallback : "true",
+  requestCallback : "addMathSuffix",
+  hasResponseCallback : "false",
+  responseCallback : null
+	}, 
+  
+  "Dal coder":{supportstools:"true",
+  hardmaxctx:"128000",
+  value:"devstral:24b",
+  hasRequestCallback : "true",
+  requestCallback : "addCoderSuffix",
+  hasResponseCallback : "true",
+  responseCallback : "extractCodeBlocks"
+  },
+  
+  "q3a3-Frayer":{supportstools:"true",
+  hardmaxctx:"40000",
+  value:"qwen3:30b-a3b",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback : null
+  },
+  "Orchestrator":{supportstools:"true",
+  hardmaxctx:"8000",
+  value:"deepseek-R1:32b",
+  hasRequestCallback : "false",
+  requestCallback : null,
+  hasResponseCallback : "false",
+  responseCallback : null
+  }
+  };
+  
 for(var k3y in modeloptions){
 	if(modeloptions.hasOwnProperty(k3y)){
 		var option = document.createElement('option');
@@ -203,6 +311,7 @@ paintTracksBtn.addEventListener('click', recoalesceAndRenderAll);
 
 handleModelChange();
 function handleModelChange(){
+	//for handleSendPrompt
 let vidid =	 pushStackTrace("Dom.handleModelChange");/* LogStackTrace(); */
 	const selectedOption = modelInput.options[modelInput.selectedIndex];
 	const hardMaxCtx = parseInt(selectedOption.dataset.hardmaxctx, 10) || DEFAULT_NUM_CTX; 
@@ -446,7 +555,9 @@ popStackTrace(vidid);
 
 
 function calculateAndStoreTokenCounts(){
+	//for handleSendPrompt
 	//follow deduced-peculiar Messages[0:3] algorithm for Metrics.eval_count and Metrics.prompt_eval_count 
+	//algorithm is under false assumption about messages involvement in promptevalcount - unsure. 
 let vidid =	 pushStackTrace("Dom.calculateAndStoreTokenCounts");/* LogStackTrace(); */
 	const historyLength = messageHistory.length;
 	if(historyLength <2){
@@ -539,6 +650,7 @@ popStackTrace(vidid);
 
 
 function displayMessageInStack(message, index, isStreaming = false){
+	//for handleSendPrompt
 let vidid =	 pushStackTrace("Dom.displayMessageInStack");/* LogStackTrace(); */
 /*appends a message turn (user, assistant, tool) to the visual history stack.
 @param {Object} message - the message object (role, content, tool_calls?}
@@ -596,6 +708,7 @@ popStackTrace(vidid);
 
 
 function reconstructMessagesFromStack(){
+	//for handleSendPrompt
 let vidid =	 pushStackTrace("reconstructMessagesFromStack");/* LogStackTrace(); */
 	const messagesToSend = [];
 	console.log("reconstructing messages for sending. current canonical history");
@@ -694,9 +807,10 @@ function extractImportedToolBody(imporcode = "" ){
  * or rejects with an error.
  */
 async function coreOllamaRequest(requestData) {
+	//@param {object} object created by buildOllamaRequestData(z,z,z,z )
 	//@returns structure of object, not stringified.
 let vidid =	 pushStackTrace("coreOllamaRequest");/* LogStackTrace(); */
-//XXX55//console.log(`CoreOllamaRequest sending:  ${JSON.stringify(requestData, null, 2)}`); // Log outgoing request
+
 
     try {
    const response = await fetch('/api/ollama', {  
@@ -728,25 +842,18 @@ let vidid =	 pushStackTrace("coreOllamaRequest");/* LogStackTrace(); */
         let receivedToolCalls = []; // Accumulator for tool calls
 let finalPromptEvalCount = null;
 let finalEvalCount = null; 
-
-
+let finalchunk = null;
+let buffer = '';
         while (!streamDone) {
             const { done, value } = await reader.read();
             if (done) {
-                streamDone = true;
-                break;
-            }
-
-            const chunkText = decoder.decode(value, { stream: true });
-            const lines = chunkText.split('\n').filter(line => line.trim() !== '');
-
-            lines.forEach(line => {
-                try {
-                    const parsedLine = JSON.parse(line);
- //console.log("CoreOllamaRequest Parsed Line:", parsedLine); // Debug stream
-
-                    // Accumulate content
+				if(buffer){try{
+					let parsedLine = JSON.parse(buffer);
+					
+					             // Accumulate content
                     if (parsedLine.message?.content) {
+						
+console.log(`the BUFFER's line ${parsedLine.message.content}`);
                         receivedContent += parsedLine.message.content;
                     }
                     // Accumulate tool calls
@@ -760,13 +867,55 @@ let finalEvalCount = null;
                         streamDone = true;
  finalPromptEvalCount = parsedLine.prompt_eval_count ?? null; 
  finalEvalCount = parsedLine.eval_count ?? null; 
+ finalchunk = parsedLine;
+					}
+				}catch(e){
+					console.warn("stream ended with imcomplete buffer",buffer);
 				}
-                } catch (e) {
-                    console.warn("CoreOllamaRequest: Could not parse JSON line:", line, e);
-                    // Decide how to handle parse errors, maybe add raw line to content?
-                    // receivedContent += `\n[Unparseable line: ${line}]\n`;
+                streamDone = true;
+                break;
+            }
+			}
+
+            const chunkText = decoder.decode(value, { stream: true });
+			buffer += chunkText;
+    const lines = buffer.split('\n');//.filter(line => line.trim() !== '');
+buffer = lines.pop();
+//let bugspare = ""; let falt = false;
+//for(let i3 = 0; i3 < lines.length; i3++){	let line = lines[i3];
+            lines.forEach(line => {
+				let parsedLine;
+                try {
+//if(falt){line = bugspare + line; bugspare = ""; falt = false;}
+                    parsedLine = JSON.parse(line);
+					
+                       // Accumulate content
+                    if (parsedLine.message?.content) {
+//console.log(`chunk line ${parsedLine.message.content}`);
+                        receivedContent += parsedLine.message.content;
+                    }
+                    // Accumulate tool calls
+  if (Array.isArray(parsedLine.message?.tool_calls)) {
+                        receivedToolCalls.push(...parsedLine.message.tool_calls);
+                    } else if (Array.isArray(parsedLine.tool_calls)) {
+                        receivedToolCalls.push(...parsedLine.tool_calls);
+                    }
+                    // Check for Ollama's explicit done flag
+                    if (parsedLine.done === true) {
+                        streamDone = true;
+ finalPromptEvalCount = parsedLine.prompt_eval_count ?? null; 
+ finalEvalCount = parsedLine.eval_count ?? null; 
+ finalchunk = parsedLine;
+				}
+				
+				} catch (e) {
+//	   falt = true; bugspare = line;
+                    console.warn("CoreOllamaRequest: Could not parse JSON line:", line, e); 
                 }
-            });
+
+				
+//}              
+          });
         } // End while loop
 
         // Construct the final message object
@@ -778,7 +927,7 @@ let finalEvalCount = null;
 finalAssistantMessage.promptTokensForTurn = finalPromptEvalCount; 
 finalAssistantMessage.responseTokens = finalEvalCount; 
 
-
+//XXX5 console.log("CoreOllamaRequest :", finalAssistantMessage);
 popStackTrace(vidid);	 
  return finalAssistantMessage; 
  // Return the complete message object
@@ -793,6 +942,7 @@ popStackTrace(vidid);
 
 
 function updateContextSizeInfo() {
+	//for handleSendPrompt
      const contextInfoDiv = document.getElementById('contextSizeInfo'); // Get the display element
      if (!contextInfoDiv) return; // Exit if element doesn't exist
 
@@ -1066,6 +1216,37 @@ const coalescedExecutionRowContainer = document.getElementById('coalescedExecuti
 const initDynamicTableBtn = document.getElementById('initDynamicTableBtn');
 const addDefaultTrackBtn = document.getElementById('addDefaultTrackBtn');
 
+
+
+ function getHSLPastel(){
+ const hue = Math.floor(Math.random() * 360);
+ return `hsl(${hue}, 90%, 80%)`;
+ }
+ 
+function handleConvertToChoice(tRegId, cellIndex){
+const track = d4(tRegId);
+//	const track = TheScenario.findTrackById(trackId);
+	if(track){
+		track.convertToChoice(cellIndex);
+		renderDynamicScenarioTable();
+	}else{
+		console.error("XXX432couldn't find track with id to convert cell.");
+	}
+}
+		
+function handlerEditedTextArea(event){
+	const texare = event.target; 
+	const layId = texare.class;
+	let foundCell = d2(layId);
+	if(foundCell){
+		foundCell.content = texare.value;
+	}else{
+		console.log("can not find twolayer for this textarea.");
+	}
+	return;
+}
+	
+	 
 // -- Classes (simplified for focus ---
 //All Layers (2,3,4,5r,5) initialization should return RegId, and be used accordingly. 
 const TwoLayerArray = [];
@@ -1104,9 +1285,11 @@ yieldElement(){
 	roleStrong.textContent = `Role: ${this.role}: `;
 	diiv.appendChild(roleStrong);
 	const contentSpan = document.createElement('textarea');
-	contentSpan.className = diiv.className;
 	contentSpan.class = this.RegId;
 	contentSpan.value = this.content || ""; contentSpan.placeholder = (this.role ==='user'? "[your turn]" : "[awaiting response...]");
+	const toke = document.createElement('div');
+	toke.innerHTML = `Individual Token: ${this.individual_tokens} Aggregate: ${this.aggregate_tokens_at_this_point}`;
+	diiv.appendChild(toke);
 	/*
 	contentSpan.addEventListener('change', (event) => {
 		this.setContent(event.target.value);
@@ -1134,30 +1317,7 @@ setRole(newRole){
 
 }
 
-function handleConvertToChoice(tRegId, cellIndex){
-const track = d4(tRegId);
-//	const track = TheScenario.findTrackById(trackId);
-	if(track){
-		track.convertToChoice(cellIndex);
-		renderDynamicScenarioTable();
-	}else{
-		console.error("XXX432couldn't find track with id to convert cell.");
-	}
-}
-		
-function handlerEditedTextArea(event){
-	const texare = event.target; 
-	const layId = texare.class;
-	let foundCell = d2(layId);
-	if(foundCell){
-		foundCell.content = texare.value;
-	}else{
-		console.log("can not find twolayer for this textarea.");
-	}
-	return;
-}
-	
-	 
+
  //24th HELPER FUNCTION - Create new select dropdown for model selection. 
  //@param (string) selectedValue - the value of the model that should be preselected. 
  //@param (function) onChangeCallback - the function called when the selection happens.
@@ -1224,9 +1384,7 @@ this.model = document.getElementById('modelSel').value;
 		tdd.id = this.id;
 		
 		tdd.appendChild(d2(this.prompt).yieldElement());
-		let rp2 = d2(this.response).yieldElement();
-		rp2.className += " response";
-		tdd.appendChild(rp2);
+		tdd.appendChild(d2(this.response).yieldElement());
 		
 		let controlDiv = document.createElement('div');
 		controlDiv.className = 'cell-controls';
@@ -1243,7 +1401,20 @@ this.model = document.getElementById('modelSel').value;
 		});
 		controlDiv.appendChild(modelSelectorLabel);
 		controlDiv.appendChild(modelSelector);
-	 
+		/*
+		let makeChoice = document.createElement('button');
+		makeChoice.textContent = "Convert into Choice";
+		makeChoice.title = "convert this turn into a choice.";
+		makeChoice.onclick = () => handleConvertToChoice(parentTrackId, cellIndex);
+		controlDiv.appendChild(makeChoice);
+		*/
+		//24Jun25
+	/*	const execToHereBtn = document.createElement('button');
+		execToHereBtn.textContent = "execute to here";
+		execToHereBtn.title = "set all choices to lead to this point and execute.";
+		execToHereBtn.onclick = () => handleExecuteToHere(this.RegId, this.parentTrackId);
+controlDiv.appendChild(execToHereBtn);
+*/
 		tdd.appendChild(controlDiv);
 		
 		return tdd;
@@ -1441,11 +1612,6 @@ const controlsContainer = document.createElement('div');
 
 
 
- function getHSLPastel(){
- const hue = Math.floor(Math.random() * 360);
- return `hsl(${hue}, 90%, 80%)`;
- }
- 
 const FiveChoiceArray = [];
 function d5(ind){
 	if( (ind >= 0) && (ind < FiveChoiceArray.length)){return FiveChoiceArray[ind];
@@ -1571,7 +1737,8 @@ class Six_Plan {
 		this.id = `${globalUID++}`;
 		this.tracks = [];
 		this.steps = [];
-		this.initializeDefaultPlan(); 
+		this.initializeDefaultPlan();
+	//	this.initializeDefaultTrack();
 		}
 		
 		
@@ -1599,7 +1766,8 @@ return JSON.stringify(data, null, 2);
 	parseJSONstring(str){
 		const sp = JSON.parse(str);
 		if(Array.isArray(sp.steps)){
-			console.log(`${sp.steps.length} ${JSON.stringify(sp.steps[0])}`);
+			console.log(` here it is${sp.steps.length} ${JSON.stringify(sp.steps[0])}`);
+			
 		}
 	}
 	 
@@ -1630,7 +1798,14 @@ function insertAfter(parentElement, newElement, referenceElement){
 		parentElement.appendChild(newElement);
 	}
 }
- 
+/*
+//13/06/2025
+0)coreOllamaRequest should deal with Three_Cell reference, so that the tokens can be stored. 
+1) 
+2)DONE// initializeTheScenario with base Four_Row and 1 Three_Cell 
+3)primary function to render the entire scenario table. first builds and ordered list of tracks then renders them.
+	3.a) WHy are all of the text fields blanking out with each render? 
+*/
 /*23Jun clears table and calls rescusvive renderer*/
 function renderDynamicScenarioTable(){
 	if(!dynamicTableTracksContainer){
@@ -1759,14 +1934,28 @@ function renderCoalescedPlan(){
 		const execBtn = document.createElement('button');
 		execBtn.textContent = "Execute Turn";
 		execBtn.onclick = () => handleExecuteSingleTurn(cellRegId);
-		
+	
+	const execFocusButton = document.createElement('button');
+		execFocusButton.textContent = "execute Focused turn";
+		execFocusButton.title = "run 2pass execution";
+		execFocusButton.onclick = () => handleExecuteTwoPassTurn(cellRegId);
+	const exec2passSeqBtn = document.createElement('button');
+	exec2passSeqBtn.textContent = "Focus Seq2to here.";
+	exec2passSeqBtn.title = "2pass sequence to here from 0";
+	exec2passSeqBtn.onclick = () =>handleSequentialTwoPass(index);
+	
+	
 		const execSeqBtn = document.createElement('button');
 		execSeqBtn.textContent = "Run to Here";
 		execSeqBtn.title = "Execute all turns from the start up to this one."
 		execSeqBtn.onclick = () => handleSequentialConversation(index);
 		
 		controlsDiv.appendChild(execBtn);
-		controlsDiv.appendChild(execSeqBtn);
+	controlsDiv.appendChild(execSeqBtn);
+	controlsDiv.appendChild(execFocusButton);	
+	controlsDiv.appendChild(exec2passSeqBtn);
+		
+	
 		
 		if(index === CoalescedPlan.sequence.length - 1){
 			const resumeBtn = document.createElement('button');
@@ -1811,35 +2000,39 @@ renderCoalescedPlan();
 //25jun25
 function calculateAndStoreFourRowTokens(fourRowReference, completedTurnIndex, finalChunkData){
 	const fourRowInstance = d4(fourRowReference);
+console.log(`XX98 inside calculateAnd4rowTokens ${JSON.stringify(finalChunkData)}`);
 	if(!fourRowInstance || completedTurnIndex < 0 || !finalChunkData) {	
 	console.error("calculateAndStoreTokens invalid arguments." ); return;
 	}
-const promptEvalCount = finalChunkData.prompt_eval_count; 
-const evalCount = finalChunkData.eval_count; 
+const promptEvalCount = finalChunkData.prompt_eval_count; //size of messages + response
+const evalCount = finalChunkData.eval_count; //size of response
 if(typeof promptEvalCount !== 'number' || typeof evalCount !== 'number'){
 	console.warn("Token counts not available in final response chunk");
 	return;
 }
 const completedTurnCell = d3(fourRowInstance.sequence[completedTurnIndex]);
-if(!completedTurnCell) return;
+if(!(completedTurnCell instanceof Three_Cell)){ console.log(`calculateandstore XX92  `); return;}
 
 const promptMessage = d2(completedTurnCell.prompt);
 const responseMessage = d2(completedTurnCell.response);
-if(!promptMessage||!responseMessage) return;
+if(!(promptMessage instanceof Two_Layer)||!(responseMessage instanceof Two_Layer)) { console.log(`calculateandstore XX93  `);
+console.log(`calculateandstore XX93   `); return;}
 
 
 //1. Set toekn counts for the turn's assistant's message. 
-responseMessage.individual_tokens = evalCount;
 //2. set token counts for the turn's prompt message. this requires deduction. 
 if(completedTurnIndex === 0){
 	//special case: for the very first turn, the prompt_eval_count is it. 
-	promptMessage.individual_tokens = promptEvalCount; 
-promptMessage.aggregate_tokens_at_this_point = promptEvalCount; 
-} else { 
+	if(promptMessage.individual_tokens === 0){promptMessage.individual_tokens = promptEvalCount;} 
+promptMessage.aggregate_tokens_at_this_point = promptMessage.individual_tokens; 
+responseMessage.individual_tokens = evalCount ;
+responseMessage.aggregate_tokens_at_this_point = promptEvalCount + evalCount;
+
+} else if (completedTurnIndex > 0) { //completedTurnIndex > 1 
 //general case: for subsequent turns deduce the prompt's size.
 //get the turn before this one to find the previous aggregate total. 
 	const prevTurnCell = d3(fourRowInstance.sequence[completedTurnIndex - 1]);
-	if(prevTurnCell){
+	if(prevTurnCell instanceof Three_Cell){
 		const prevAggregateTokens = d2(prevTurnCell.response).aggregate_tokens_at_this_point;
 		if(typeof prevAggregateTokens === `number`){
 			//the size of this turn's prompt context which includes user.prompt + tool responses.  
@@ -1847,19 +2040,33 @@ promptMessage.aggregate_tokens_at_this_point = promptEvalCount;
 			promptMessage.individual_tokens = promptEvalCount - prevAggregateTokens; 
 		}else{
 			console.warn ("couldn't find previous aggregatetokens to calculate.");
-			promptMessage.individual_tokens = null;
+			promptMessage.individual_tokens = 0;
 		}
 	}
+	
 		promptMessage.aggregate_tokens_at_this_point = promptEvalCount;
-	}
 	//3. finalize the AGGREGATE token count for the assitant repsonse. 
 	//this is the aggregate total from the prompt turn + the indivudal tokens. 
 	if(typeof promptMessage.aggregate_tokens_at_this_point === 'number'){
-		responseMessage.aggregate_tokens_at_this_point = promptMessage.aggregate_tokens_at_this_point + responseMessage.individual_tokens;
+		responseMessage.individual_tokens = evalCount;
+		responseMessage.aggregate_tokens_at_this_point = promptMessage.individual_tokens + evalCount;
+		for(let i = 0; i < completedTurnIndex; i++){
+			let curpromind = d2(d3(fourRowInstance.sequence[i]).prompt).individual_tokens;
+			let currespind = d2(d3(fourRowInstance.sequence[i]).response).individual_tokens;
+		responseMessage.aggregate_tokens_at_this_point += curpromind;
+		responseMessage.aggregate_tokens_at_this_point += currespind;
+		promptMessage.aggregate_tokens_at_this_point += curpromind;
+		promptMessage.aggregate_tokens_at_this_point += currespind;
+		
+		}		
+
 	} else{
-		responseMessage.aggregate_tokens_at_this_point = null;
+		responseMessage.aggregate_tokens_at_this_point = 0;
 	}
 
+	
+	}
+	
 console.log(`token updatated for turn at index ${completedTurnIndex}: -prompt:${promptMessage.id}): indivual=${promptMessage.individual_tokens}, aggregate=${promptMessage.aggregate_tokens_at_this_point}\n -response:${responseMessage.id}: individual=${responseMessage.individual_tokens} aggregate=${responseMessage.aggregate_tokens_at_this_point}`);
 }
 
@@ -1906,6 +2113,7 @@ function reconstructMessagesFromFourRow(fourRowReference){
  */
 //25jun25
 async function coreOllamaRequestTC(threeCellReference){
+	//XX34fetch 3cell
 	const threeCellInstance = d3(threeCellReference);
 	if(!threeCellInstance || !(threeCellInstance instanceof Three_Cell)){
 		console.error("coreOllamaRequest: Invalid parameter. a three_cell instance is required.");
@@ -1914,34 +2122,51 @@ async function coreOllamaRequestTC(threeCellReference){
 	
 	//1. prepare request data
 	//dereference the prompt's two layer object using its RegId
+//XX34fetch prompt from 3cell
 	const promptMessage = d2(threeCellInstance.prompt);
 	if(!promptMessage || !promptMessage.content){
 		console.error(`coreOllamaRequest ${threeCellInstance.id} is empty.`);return false;
 	}
-	
+//XX34construct messages[] from ConversationHistory 	
 	const messagehist = reconstructMessagesFromFourRow(ConversationHistory.RegId);
-	messagehist.push({role: promptMessage.role, content: promptMessage.content});
 	//getmodel and context
 	const modelch 	=  threeCellInstance.model ||	modelInput.value;
 	const cntch		=	numCtxSlider.value;	
+	//model callbacks
+	let rules = null;
+	for(let keyin in modeloptions){
+		if(modeloptions[keyin].value === modelch){
+			rules = modeloptions[keyin];
+		}
+	}
+	let finalpromptMessage = promptMessage.content;
+	if(rules && rules.hasRequestCallback && processingCallbacks[rules.requestCallback]){
+		console.log("prompt prefix processor here");
+		const requestProcessor = processingCallbacks[rules.requestCallback];
+		finalpromptMessage = requestProcessor(finalpromptMessage);
+	}
 	
+//XX34push prompt to messages[] 
+	messagehist.push({role: promptMessage.role, content: finalpromptMessage });
 	//3rd argument is true and 4th is tools
+	
 	const requestData = buildOllamaRequestData(modelch, messagehist, false,{});
 	
 	//2. PRocess the Requeset and stream response ---
 	let finalChunkData = null; //stores the final chunk done=true 
 	try {
 		//reset the call's response content before streaming. 
+//XX34fetch response 
 		const responseMessage = d2(threeCellInstance.response);
-		responseMessage.content = "";
-		//
+		responseMessage.content = ""; 
+		
 		const response = await fetch('/api/ollama',{method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(requestData)});
 		
 		if(!response.ok){
 			const errorText = await response.text();
 			throw new Error(`CORXXX1 Ollama API request failed: ${response.status} - ${errorText}`);
 		}
-		if(!response.body){
+		if(!response.body){ 
 			throw new Error('CORXXX1 ollama API response body is null.');
 		}
 		
@@ -1976,14 +2201,23 @@ responseMessage.content += parsedLine.message.content;
 		});
 		//plaseholder for UI updata during streaming if needed. 
 		}//end whlie loop.
+		
 		//3. finalize turn and calculate tokens --- 
 		if(finalChunkData){
 			//token size and messages come from history, which is conversationhistory. 
 			var lne2 = ConversationHistory.sequence.length;
 			ConversationHistory.addCell(threeCellReference);
-			calculateAndStoreFourRowTokens(ConversationHistory.RegId,ConversationHistory.sequence.length,finalChunkData);
+console.log(`XX98 within coreOllamaTC ${ConversationHistory.sequence.length} `);
+			calculateAndStoreFourRowTokens(ConversationHistory.RegId,ConversationHistory.sequence.length-1,finalChunkData);
 		}else{
 			console.warn("ollama stream finished without a done true");
+		}
+		
+		if(rules && rules.hasResponseCallback && processingCallbacks[rules.responseCallback]){
+			
+			const responseProcessor = processingCallbacks[rules.responseCallback];
+			const affext  = responseProcessor(responseMessage.content);
+			responseMessage.setContent(affext); 
 		}
 		//place holder for UI update after streaming. 
 return true;
@@ -1997,6 +2231,117 @@ return false;
 
 }	
 
+
+/* calculates the aggregate token count for a fourrow history 
+@param {number}  fourrowreference regid */
+function calculateTokensFromHistory(fourrowref){
+	const fourRowInstance = d4(fourrowref);
+	if(!(fourRowInstance instanceof Four_Row)){return;}
+let cumulativeTokens = 0;
+for(const cellRegId of fourRowInstance.sequence){
+const turn = d3(cellRegId); if(!(turn instanceof Three_Cell)){ continue;}
+const promp = d2(turn.prompt);
+const respo = d2(turn.response);
+if(promp instanceof Two_Layer){
+cumulativeTokens += promp.individual_tokens;
+promp.aggregate_tokens_at_this_point = cumulativeTokens;
+}
+if(respo instanceof Two_Layer){
+cumulativeTokens += respo.individual_tokens;
+respo.aggregate_tokens_at_this_point = cumulativeTokens;
+}
+}	
+
+}
+
+  
+/* 9 July 25 two pass request to ascertain prompt count  */
+/* executes special two pass request for a single turn. 
+@param {number} threeCellReferenceId 
+@returns {bool} promise that resolves to true upon success. */
+async function  coreTwoPassRequest(threeCellReference){
+	const threeCellInstance = d3(threeCellReference);
+	if(!(threeCellInstance instanceof Three_Cell)){return false;}
+	const promptMessage = d2(threeCellInstance.prompt);
+	if(!(promptMessage instanceof Two_Layer)){return false;}
+	const originalPromptContent = promptMessage.content; 
+	const modelToUse = threeCellInstance.model || modelInput.value;
+
+//Pass 1 - deterministic. 
+	const originalTemp = tempSlide.value; const originalTopK = topkSlide.value;
+	const focusedOptions = {num_ctx: parseInt(numCtxSlider.value, 10), temperature: 0.0, top_k: 1,};
+	const requestData1 = buildOllamaRequestData(modelToUse, [{role: promptMessage.role, content: originalPromptContent}],false,{});
+	requestData1.options = focusedOptions;
+	let response1_obj;
+	try { response1_obj = await coreOllamaRequest(requestData1);
+	}finally { tempSlide.value = originalTemp; topkSlide.value = originalTopK;
+	handletempinput(); handletopkinput();
+	}
+	const focusedprompttokens = response1_obj.promptTokensForTurn;
+
+//Pass 2 - Creative
+	const prompt2 = `${originalPromptContent}\n${response1_obj.content}`;
+	const messageHistoryForContext = reconstructMessagesFromFourRow(ConversationHistory.RegId);
+	messageHistoryForContext.push({role: 'user', content: prompt2});
+	const requestData2 = buildOllamaRequestData(modelToUse, messageHistoryForContext, false, {});
+	const response2_obj = await coreOllamaRequest(requestData2);
+//update cell 
+console.log(`inside 2pass after request 2nd pass- ${JSON.stringify(response2_obj)}`);
+	d2(threeCellInstance.prompt).setContent(originalPromptContent);
+	d2(threeCellInstance.response).setContent(response2_obj.content);
+	//manually set token count without calling calculateAndStore (which may be wrong algorithm).
+	if(focusedprompttokens){//XX34 
+console.log(`HERE IN TWO PASS: prompt individual token`);
+d2(threeCellInstance.prompt).individual_tokens = focusedprompttokens; }else{
+console.log("here in two pass, individual fail");}
+	if(response2_obj.responseTokens){
+console.log(`HERE IN 2 PASS: RESPONSE individual token`);d2(threeCellInstance.response).individual_tokens = response2_obj.responseTokens;}else{
+	console.log("response token fail");
+	}
+	//history
+	ConversationHistory.addCell(threeCellReference);
+	calculateTokensFromHistory(ConversationHistory.RegId);
+	return true;
+}
+
+/*
+handler for the "exeecute focused turn" button. orchestrates the two-pass execution. 
+@param {number} threeCellRegId - the registry ID of the Three_cell to execute
+*/
+async function handleExecuteTwoPassTurn(threeCellRegId){
+	statusDiv.textContent = "executing focused turn";
+	document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = true);
+	const success = await coreTwoPassRequest(threeCellRegId);
+	if(success){ statusDiv.textContent = "focused turn executed successfully." ; }else{ statusDiv.textContent = "error during focused turn execution.";}
+	document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = false);
+	renderCoalescedPlan(); 
+	
+}
+
+async function handleSequentialTwoPass(upToIndex){
+	statusDiv.textContent = "Starting sequential execution...";
+	//step1 archive the results of the previous run before restting. 
+	archiveCurrentConversation();
+	//step2 reset the global conversationhistory for a fresh run. giving it a timestampedname is usefulrfor the archive.
+	ConversationHistory = new Four_Row(`Run@${new Date().toLocaleTimeString()}`);
+	//disable all execution buttons to prevent conflicts.
+	document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = true);
+	//step3 loop and execute each turn sequentially.
+	//the await is critical to ensure the loop pauses until each turn is complete. 
+	for(let i = 0; i <= upToIndex; i++){
+		const cellRegId = CoalescedPlan.sequence[i];
+		if(!d3(cellRegId)) continue;
+		statusDiv.textContent = `Executing turn ${i + 1} of ${upToIndex + 1}...`;
+		//handleexecutesingturn no correctly contributes to new clean conversationhisotry.
+		await handleExecuteTwoPassTurn(cellRegId);
+	}
+	statusDiv.textContent = "Sequential execution complete.";
+	renderDynamicScenarioTable();
+	//reenable buttons. 
+	document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = false);
+}
+  
+  
   
 const conversationHistoryLogContainer = document.getElementById('conversationHistoryLogContainer');
 /*
@@ -2209,8 +2554,9 @@ async function saveArchive(){
 
 });
 ///
-
+ 
 function extractCodeBlocks(text){
+	console.log("extractCode was called.");
 if(typeof text !== 'string' || !text){return "";}
 //regex = between ``` and ```,   g finds all matches, s (dotAll) allows . to match newlines 
 const regex1 = /```([\s\S]*?)```/gs;
