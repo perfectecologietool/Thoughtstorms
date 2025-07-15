@@ -7,7 +7,7 @@
 body {font-family: sans-serif; line-height: 1.6; padding: 20px;}
 #prompt {width: 80%; padding: 10px; margin-bottom: 10px; }
 #send {padding: 10px 14px; }
-.message-role-assistant {margin-top: 20px; border: 1px solid #ccc; padding: 14px; background-color: #000; color: #fff; }
+#response {margin-top: 20px; border: 1px solid #ccc; padding: 14px; background-color: #000; color: #fff; }
 #status {margin-top: 10px; font-style: italic; color: #555;}
 
 #messageHistoryStack .message-turn {
@@ -50,13 +50,12 @@ border-top: none;
 border-bottom: none;
 background-color: #fdccf4;
 }
-
-textarea { background-color: #000; color:#fff;}
-
+textarea { border: 1px solid #000; height: 50px; width: }
 </style>
+
 </head>
 <body>
-<h1>Temporal chat with ollama via C234</h1>
+<h1 style="font-size: 2.25rem; color: #3b82f6; font-weight: 500;">Temporal chat with ollama via C234</h1>
 <hr>
 <div>
 <label for="numCtxSlider">desiredContextSize(num_Ctx)</label>
@@ -78,22 +77,22 @@ textarea { background-color: #000; color:#fff;}
 <span id="topkValue" style="font-weight: bold; min-width: 60px; text-align: right;">3</span>choice</div>
 </div>
 
-<h2>future scenarios table</h2> 
+<h2  style="font-size: 1.875rem; color: #2563eb; font-weight: 500;">future scenarios table</h2> 
 <div>
 <button id="renderbtn"  >render everything</button>
 </div>
 <div style="margin-bottom:20px;">
-<h3>tracks (editable potential futures - lowest track has highest override priority</h3>
+<h3  style="font-size: 1.5rem; color: #1e50af; font-weight: 500;">tracks (editable potential futures - lowest track has highest override priority</h3>
 <div style="overflow-x: auto;">
 <table border="1" style="border-collapse: collapse; width: %100;">
 <tbody id="dynamicTableTracksContainer">
 </tbody></table></div></div>
-<div><h3>coalesced execution plan</h3>
+<div><h3   style="font-size: 1.5rem; color: #1e50af; font-weight: 500;">coalesced execution plan</h3>
 <div style="overflow-x: auto;">
 <table border="1" style="border-collapse: collapse; width: 100%;">
 <tbody id="coalescedExecutionRowContainer">
 </tbody></table></div></div>
-<h2>Conversation History Log</h2>
+<h2  style="font-size: 1.875rem; color: #2563eb; font-weight: 500;">Conversation History Log</h2>
 <div style="max-height: 300px; overflow-y: auto; border: 1px solid $ccc; padding: 1px;">
 <button id="saveArchiveBut">Save full archive to file</button><button id="savePresentScenario">save present Scenario</button>
 <table border="1" style="width:100%; border-collapse:collapse:">
@@ -135,7 +134,7 @@ textarea { background-color: #000; color:#fff;}
 <textarea id="tools_json_area"  rows="10" placeholder="exported tools will be showwn"></textarea>
 <button id="export_tools_button">Export Current Tools</button>
 <button id="import_tools_button">import/replace tools from above</button>
-<div id="import_export_status" style="font-style:italic; colour: Green; margin-top: 5px;"></div>
+<div id="import_export_status" style="font-style:italic; color: Green; margin-top: 5px;"></div>
  </div>
 
 </div>

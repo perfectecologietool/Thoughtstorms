@@ -1247,6 +1247,7 @@ function handlerEditedTextArea(event){
 }
 	
 	 
+const textAreaSizeRegistry = new Map();
 // -- Classes (simplified for focus ---
 //All Layers (2,3,4,5r,5) initialization should return RegId, and be used accordingly. 
 const TwoLayerArray = [];
@@ -1276,7 +1277,7 @@ getJSONstring(){
 	return JSON.stringify(data, null, 2);
 }
 
-yieldElement(){
+yieldElement(uniqueContextId = this.id){
 	/* returns theHTML string or DOM element for a message*/
 	const diiv = document.createElement('div');
 	//diiv.id = this.id; 
@@ -1285,8 +1286,22 @@ yieldElement(){
 	roleStrong.textContent = `Role: ${this.role}: `;
 	diiv.appendChild(roleStrong);
 	const contentSpan = document.createElement('textarea');
-	contentSpan.class = this.RegId;
+	var stil12 ="";
+if	(this.role === 'user'){stil12 = "background-color: #000000; color: #ffffff;"}else{ stil12 = "background-color: #172554; color: #fefce8;";}
+contentSpan.class = `${this.RegId}`;
+contentSpan.style = stil12;
 	contentSpan.value = this.content || ""; contentSpan.placeholder = (this.role ==='user'? "[your turn]" : "[awaiting response...]");
+	const elemId = `textarea-${uniqueContextId}-${this.role}`;
+	contentSpan.id = elemId;
+	const savedSize = textAreaSizeRegistry.get(elemId);
+	if(savedSize){
+		contentSpan.style.width = savedSize.width;
+		contentSpan.style.height= savedSize.height;
+	}
+	contentSpan.addEventListener('mouseup',()=>{
+		textAreaSizeRegistry.set(elemId, { 
+		width: contentSpan.style.width,
+	height: contentSpan.style.height});});
 	const toke = document.createElement('div');
 	toke.innerHTML = `Individual Token: ${this.individual_tokens} Aggregate: ${this.aggregate_tokens_at_this_point}`;
 	diiv.appendChild(toke);
@@ -1377,14 +1392,14 @@ this.model = document.getElementById('modelSel').value;
 		return JSON.stringify(data, null, 2);
 	}
 	
-	yieldElement(){	/*returns td DOM element */ 
+	yieldElement( ){	/*returns td DOM element */ 
 	//this function is used by the main dynamicscenariotable...
 		var tdd = document.createElement('td');
 		tdd.classname = 'cell-content';
 		tdd.id = this.id;
 		
-		tdd.appendChild(d2(this.prompt).yieldElement());
-		tdd.appendChild(d2(this.response).yieldElement());
+		tdd.appendChild(d2(this.prompt).yieldElement(this.id));
+		tdd.appendChild(d2(this.response).yieldElement(this.id));
 		
 		let controlDiv = document.createElement('div');
 		controlDiv.className = 'cell-controls';
@@ -1421,8 +1436,8 @@ controlDiv.appendChild(execToHereBtn);
 	}
 	yieldContentElements(isCoalesced = false){
 		const contentFragment = document.createDocumentFragment(); 
-		contentFragment.appendChild(d2(this.prompt).yieldElement());
-		contentFragment.appendChild(d2(this.response).yieldElement());
+		contentFragment.appendChild(d2(this.prompt).yieldElement(this.id));
+		contentFragment.appendChild(d2(this.response).yieldElement(this.id));
 		return contentFragment;
 	}
 	
@@ -1915,6 +1930,7 @@ function coalesceScenarioToPlan(){
 	traverse(d5(TheScenario.steps[0]).branches[0]);
 }
 /* 2 renders the coalescedpalnan into tits dedicated table. 
+"background-color:# ; color:#ffffff; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;"
 */
 //25jun25
 function renderCoalescedPlan(){
@@ -1934,22 +1950,25 @@ function renderCoalescedPlan(){
 		const execBtn = document.createElement('button');
 		execBtn.textContent = "Execute Turn";
 		execBtn.onclick = () => handleExecuteSingleTurn(cellRegId);
+		execBtn.style = "background-color:#22c55e ; color:#ffffff; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;";
 	
 	const execFocusButton = document.createElement('button');
 		execFocusButton.textContent = "execute Focused turn";
 		execFocusButton.title = "run 2pass execution";
 		execFocusButton.onclick = () => handleExecuteTwoPassTurn(cellRegId);
+		execFocusButton.style = "background-color:#facc15 ; color:#000000; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;";
 	const exec2passSeqBtn = document.createElement('button');
 	exec2passSeqBtn.textContent = "Focus Seq2to here.";
 	exec2passSeqBtn.title = "2pass sequence to here from 0";
 	exec2passSeqBtn.onclick = () =>handleSequentialTwoPass(index);
+	exec2passSeqBtn.style = "background-color: #eab308 ; color:#000000; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;";
 	
 	
 		const execSeqBtn = document.createElement('button');
 		execSeqBtn.textContent = "Run to Here";
 		execSeqBtn.title = "Execute all turns from the start up to this one."
 		execSeqBtn.onclick = () => handleSequentialConversation(index);
-		
+		execSeqBtn.style = "background-color:#4ade80; color:#000000; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;";
 		controlsDiv.appendChild(execBtn);
 	controlsDiv.appendChild(execSeqBtn);
 	controlsDiv.appendChild(execFocusButton);	
@@ -1962,7 +1981,15 @@ function renderCoalescedPlan(){
 			resumeBtn.textContent = "resume track";
 			resumeBtn.title = "execute all pending or failed on this plan." ;
 			resumeBtn.onclick = () => resumeSequentialConversation(index);
+			resumeBtn.style = "background-color:#166534 ; color:#ffffff; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;";
 			controlsDiv.appendChild(resumeBtn);
+			const resume2pBtn = document.createElement('button');
+			resume2pBtn.textContent = "resume 2pass";
+			resume2pBtn.title = "ask all undone prompts through 2pass";
+			resume2pBtn.onclick = () => resume2passtrack(index);
+			resume2pBtn.style = "background-color:#a16207 ; color:#000000; border-width: 1px; border-style: solid; border-color: #1d4ed8; font-weight: 500; border-radius: 0.5rem; padding-left: 1.25rem;padding-right: 1.25rem;padding-bottom: 1.25rem;padding-top: 1.25rem;";
+			
+			controlsDiv.appendChild(resume2pBtn);
 		}
 		
 		td.appendChild(controlsDiv);
@@ -2433,6 +2460,31 @@ statusDiv.textContent = "resume execution complete";
 document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = false);
  }
 		
+ //for2pass at end of coalesced plan
+ async function resume2passtrack(upToIndex){
+
+	 statusDiv.textContent = "Resuming sequential executor...";
+	 archiveCurrentConversation();
+	 	 conversationHistory = new Four_Row(`Resume@${new Date().toLocaleTimeString()}`);
+	document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = true);
+	
+for(let i = 0; i <= upToIndex; i++){
+	const cellRegId = CoalescedPlan.sequence[i]; 
+	const threeCell = d3(cellRegId);
+	if(!threeCell) continue;
+	const responseContent = d2(threeCell.response).content;
+	const needsExecution = (responseContent === "[Awaiting Response...]" || responseContent.startsWith("[ERROR") || responseContent === "" || responseContent === " ");
+	if(needsExecution){
+		statusDiv.textConetnt = `executing turn ${i + 1} of ${upToIndex + 1}`;
+		await handleExecuteTwoPassTurn(cellRegId);
+	}else{
+		statusDiv.textConetnt = `skipping turn ${i + 1} of ${upToIndex + 1}`;
+		ConversationHistory.addCell(cellRegId);
+	}
+}
+statusDiv.textContent = "resume execution complete";
+document.querySelectorAll(`.execution-controls button`).forEach(b => b.disabled = false);
+ }
  
 /*
 pass 1 traces the path from a target track up to the root and sets the favoured branch property on all intervening fivec hoice instances. 
