@@ -1,0 +1,184 @@
+ <html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> c234 REFACTORED ollama interface</title>
+<style>
+body {font-family: sans-serif; line-height: 1.6; padding: 20px;}
+#prompt {width: 80%; padding: 10px; margin-bottom: 10px; }
+#send {padding: 10px 14px; }
+#response {margin-top: 20px; border: 1px solid #ccc; padding: 14px; background-color: #000; color: #fff; }
+#status {margin-top: 10px; font-style: italic; color: #555;}
+
+#messageHistoryStack .message-turn {
+border: 1px solid #e8e8e8;
+border-radius: 5px;
+padding: 10px;
+margin-bottom: 10px;
+background-color: #f9f9f9;
+}
+#messageHistoryStack .message-turn strong {
+display: block; 
+margin-bottom: 5px;
+font-size: 0.9em;
+color: #333;
+}
+#messageHistoryStack .message-turn[data-role="user"]{background-color: #e6f7ff; border-color: #b3e0ff;}
+#messageHistoryStack .message-turn[data-role="assistant"]{ background-color: #f0f0f0; border-color: #cccccc;}
+#messageHistoryStack .message-turn[data-role="role"]{ background-color: #fffbe6; border-color: #ffe58f;}
+
+#messageHistoryStack .message-turn textarea {
+width: 98%; 
+min-height: 50px;
+border: 1px solid #ccc;
+padding: 5px;
+font-family: monopspace;
+font-size: 0.95em;
+resize: vertical;
+}
+#messageHistoryStack .tool-call-notice {
+font-style: italic;
+color: #888;
+font-size:0.9em;
+margin-top: 4px;
+}
+
+.choice-connector-cell {
+border-left: 3px solid #e0b030;
+border-right: 1px solid #30b3e0;
+border-top: none;
+border-bottom: none;
+background-color: #fdccf4;
+}
+textarea { border: 1px solid #000; height: 50px; width: }
+button:disabled {
+background-color: #cccccc; cursor: not-allowed; opacity: 0.7;}
+</style>
+
+</head>
+<body>
+<h1 style="font-size: 2.25rem; color: #3b82f6; font-weight: 500;">Temporal chat with ollama via C234</h1>
+<hr>
+<div>
+<label for="numCtxSlider">desiredContextSize(num_Ctx)</label>
+<div style="display: flex; align-items: center; gap: 10px;">
+<input type="range" id="numCtxSlider" min="512" max="8192" value="4096" step="256" style="flex-grow: 1;">
+<span id="numCtxValue" style="font-weight: bold; min-width: 60px; text-align: right;">4096</span> tokens </div>
+<div id="contextSizeInfo" >Total contenxt size</div>
+</div>
+<div>
+<label for="tempslider">desiredslider</label>
+<div style="display: flex; align-items: center; gap: 10px;">
+<input type="range" id="tempslider" min="0" max="1" value="0.34" step="0.01" style="flex-grow: 1;">
+<span id="tempValue" style="font-weight: bold; min-width: 60px; text-align: right;">0.34</span>randomness</div>
+</div>
+<div>
+<label for="topkslider">top_k slider</label>
+<div style="display: flex; align-items: center; gap: 10px;">
+<input type="range" id="topkslider" min="1" max="20" value="3" step="1" style="flex-grow: 1;">
+<span id="topkValue" style="font-weight: bold; min-width: 60px; text-align: right;">3</span>choice</div>
+</div>
+
+<h2  style="font-size: 1.875rem; color: #2563eb; font-weight: 500;">future scenarios table</h2> 
+<div>
+<button id="renderbtn"  >render everything</button>
+</div>
+<div style="margin-bottom:20px;">
+<h3  style="font-size: 1.5rem; color: #1e50af; font-weight: 500;">tracks (editable potential futures - lowest track has highest override priority</h3>
+<div style="overflow-x: auto;">
+<table border="1" style="border-collapse: collapse; width: %100;">
+<tbody id="dynamicTableTracksContainer">
+</tbody></table></div></div>
+<div><h3   style="font-size: 1.5rem; color: #1e50af; font-weight: 500;">coalesced execution plan</h3>
+<div style="overflow-x: auto;">
+<table border="1" style="border-collapse: collapse; width: 100%;">
+<tbody id="coalescedExecutionRowContainer">
+</tbody></table></div></div>
+<h2  style="font-size: 1.875rem; color: #2563eb; font-weight: 500;">Conversation History Log</h2>
+<div style="max-height: 300px; overflow-y: auto; border: 1px solid $ccc; padding: 1px;">
+<button id="saveArchiveBut">Save full archive to file</button><button id="savePresentScenario">save present Scenario</button>
+<table border="1" style="width:100%; border-collapse:collapse:">
+<tbody id="conversationHistoryLogContainer">
+</tbody></table></div>
+<hr>
+<div>
+<button id="seetex">see TheScenario</button>
+<button id="emitex">shine tscenario</button>
+<textarea id="scenetext"></textarea></div>
+
+<hr>
+<div>
+<label for="function_name">Function_name:</label>
+<input type="text" id="function_name" placeholder="e.g: getSphericalCoordinates">
+<label for="function_description">Function Description:</label><input type="text" id="function_description" placeholder="describe to the LLM what the tool does.">
+<label for="number_parameters">number of parameters:</label><select id="number_parameters">
+<option value="0">0</option>
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+<option value="5">5</option>
+<option value="6">6</option> </select>
+<div id="parameters_area"></div>
+<label for="function_code">FUnction code(javscript</label>
+<textarea id="function_code" placeholder="async function(param1, param2){"></textarea>
+<button id="add_function"> add/update function</button>
+<div id="defined_functions_list">
+<h3>defined functions</h3>
+<ul></ul>
+</div>
+<h2> tool execution output:</h2>
+<div id="tool_output_area"></div>
+
+<div id="import_export_section" style="margin-top: 30px;">
+<h3>Import/Export tools</h3>
+<label for="tools_json_area">tools definition (JSON):</label>
+<textarea id="tools_json_area"  rows="10" placeholder="exported tools will be showwn"></textarea>
+<button id="export_tools_button">Export Current Tools</button>
+<button id="import_tools_button">import/replace tools from above</button>
+<div id="import_export_status" style="font-style:italic; color: Green; margin-top: 5px;"></div>
+ </div>
+
+</div>
+
+
+<hr>
+<div>
+    <label for="modelSel">Choose a model:</label>
+    <select id="modelSel"></select> 
+</div>
+<div>
+<textarea id="prompt" rows="4" placeholder="enteryour prompt here..."></textarea>
+</div>
+
+<button id="send">SendPrompt</button>
+
+
+</div>
+
+<h2>Response: </h2>
+<div id="response"></div>
+<div id="status">Ready</div>
+        <div id="contextSizeInfo" style="font-size: 0.85em; color: #666; margin-top: 5px;">Context tokens used in last input turn: N/A</div>
+<div id="tokendisp"></div>
+<div id="messageHistoryStack"></div>
+<button id="saveHistoryButton" style="margin-left: 10px">save MAIN-UI conversation</button>
+ 
+
+<script src="/data-models.js"></script>
+
+ <script src="/manager.js"></script>
+<script src="/core-services.js" place="depended on by mainchat, dynamictable, exec1pass, exec2pass">
+ </script>
+ 
+<script sc="/main-chat-ui.js"></script>
+<script src="/dynamic-table-renderer.js"></script>
+<script src="/execution-suite-single-pass.js"></script>
+<script src="/execution-suite-two-pass.js"></script>
+<script src="/tools-ui.js">//main from which others are called.</script>
+<script src="/tools-exec.js">//main .</script>
+
+ 
+
+  
+</body></html>

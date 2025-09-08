@@ -15,12 +15,12 @@ import (
 )
 // --- Configuratin ---
 const (
-listenAddr = ":8587"
+listenAddr = ":11432"
 ollamaServerURL = "http://localhost:11434"
 
 ollamaAPIPath = "/api/chat"
 staticDir = "."
-uiFile = "UXtool.html"
+uiFile = "UXRF.html"
 timeoutDuration = 150 * time.Minute
 historySaveDir = "./conversation_history" 
 )
@@ -50,6 +50,8 @@ mux.HandleFunc("/",func(w http.ResponseWriter, r *http.Request) {
 	
 log.Println("file request recieved")
 //ensure only GET requests. 
+w.Header().Set("Cache-Context", "no-store, no-cache, must-revalidate");
+w.Header().Set("Expires","0");
 	if r.URL.Path == "/" {
 	http.ServeFile(w, r, staticDir+"/"+uiFile)
 	return
